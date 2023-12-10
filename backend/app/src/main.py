@@ -92,7 +92,11 @@ async def getRegras():
     projetoPAA.reference("/Regras").push(body)
     return regras
 
-
+@app.get("/Regras/Arvore/display")
+async def getArvore():
+    arvore = projetoPAA.reference("/Regras/Arvore").get()
+    body = json.dumps(arvore)
+    return json.loads(body)
 
 
 #           CREATE
