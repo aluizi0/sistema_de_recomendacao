@@ -1,10 +1,12 @@
 import json
+import random
+from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi import APIRouter
 from config_db import projetoPAA
 from fastapi.middleware.cors import CORSMiddleware
+import anytree
 from anytree import Node
-
 app = FastAPI()
 
 # Origens do frontend permitidas
@@ -20,38 +22,126 @@ app.add_middleware(
 )
 
 
-def criaFilho1(pai = Node, nome = str, dictRegras = dict):
-    # Cria um no
-    branch = Node(nome, parent=pai)
-    # Chama a funcao criafilho2
-    criaFilho2(branch, nome, dictRegras)
+def geraPerg(sintoma = str):
+    if sintoma == "impulso":
+        return "Melhorar seu impulso é uma prioridade?"
+    elif sintoma == "agilidade":
+        return "Ficar mais ágil é uma prioridade?"
+    elif sintoma == "forca":
+        return "Ficar mais forte é uma prioridade?"
+    elif sintoma == "resistencia":
+        return "Melhorar sua resistencia é uma prioridade?"
+    elif sintoma == "ritmo":
+        return "Melhorar seu ritmo é uma prioridade?"
+    elif sintoma == "tecnica":
+        return "Realizar uma atividade que envolve tecnica é uma prioridade?"
+    elif sintoma == "reflexo":
+        return "Você procura uma atividade para melhorar seus reflexos?"
+    elif sintoma == "boa_condicao_financeira":
+        return "Você está disposto a pagar uma quantidade significativa de dinheiro?"
+    elif sintoma == "flexibilidade":
+        return "Ficar mais flexível é uma prioridade?"
+    elif sintoma == "capacidade_pulmonar":
+        return "Você procura uma atividade para melhorar sua capacidade pulmonar?"
+    elif sintoma == "equilibrio":
+        return "Você procura uma atividade para melhorar seu equilíbrio?"
+    elif sintoma == "ganhar_massa":
+        return "Ganhar massa magra, músculos, é uma prioridade?"
+    elif sintoma == "definicao_corporal":
+        return "Você procura ter um corpo definido?"
+    elif sintoma == "perca_massa":
+        return "Você prioriza perder massa gorda?"
+    elif sintoma == "utilizar_melhoradores_de_perf_atletica":
+        return "Você se dispõe a utilizar melhoradores de performance atlética, com acompanhamento médico?"
 
-def criaFilho2(pai = Node, nome = str, dictRegras = dict):
-    # Cria uma folha com a causa
-    # Caso nao haja causa para a combinacao de sintomas cria uma folha com Goback
-    nomePai = pai.parent.name
-    nome = pai.name
-    dictRegraCausas = dictRegras
-    istrue = False
+def getPerguntados(pai = Node):
+    perguntados = ''
+    if pai.name != 'Origem':
+        if pai.name != 'Sim' and pai.name != 'Nao' and pai.name != 'Nao_Sei':
+            perguntados = pai.name + ' '
+            return getPerguntados(pai.parent) + perguntados
+        else:
+            return getPerguntados(pai.parent)
+    else:
+        return perguntados
+
+def getRespostas(pai):
+    respostas = ''
+    if pai.name != 'Origem':
+        if pai.name == 'Sim' or pai.name == 'Nao' or pai.name == 'Nao_Sei':
+            respostas = pai.name + ' '
+            return getRespostas(pai.parent) + respostas
+        else:
+            return getRespostas(pai.parent)
+    else:
+        return respostas
+
+def getNegados(perguntados, respostas):
+    negados = []
+    if respostas:
+        for i in range(len(perguntados)):
+            if respostas[i] == 'Nao':
+                negados.append(perguntados[i])
+    return negados
+
+def getAfirmados(perguntados, respostas):
+    afirmados = []
+    if respostas:
+        for i in range(len(perguntados)):
+            if respostas[i] == 'Sim':
+                afirmados.append(perguntados[i])
+    return afirmados
+
+
+
+def probabilidades(afirmads, negads, dictRegraCausas):
+    res = []
+    probs = []
     for item in dictRegraCausas:
-        if [nomePai, nome] in dictRegraCausas[item].YY or [nome, nomePai] in dictRegraCausas[item].YY:
-            istrue = True
-            branch = Node(dictRegraCausas[item].causa, parent= pai)
-        elif [nomePai, nome] in dictRegraCausas[item].YN or [nome, nomePai] in dictRegraCausas[item].YN:
-            istrue = True
-            branch = Node(dictRegraCausas[item].causa, parent=pai)
-        elif [nomePai, nome] in dictRegraCausas[item].NN or [nome, nomePai] in dictRegraCausas[item].NN:
-            istrue = True
-            branch = Node(dictRegraCausas[item].causa, parent=pai)
-    if istrue == False:
-        branch = Node("GoBack "+nomePai+' '+nome, parent= pai)
+        aProb = dictRegraCausas[item].prob
+        for af in afirmads:
+            if af in dictRegraCausas[item].sintYes1:
+                aProb+= 0.2
+            elif af in dictRegraCausas[item].sintYes2:
+                aProb+= 0.1
+            elif af in dictRegraCausas[item].sintYes3:
+                aProb+= 0.05
+        for neg in negads:
+            if neg in dictRegraCausas[item].sintNot1:
+                aProb+= 0.2
+            elif neg in dictRegraCausas[item].sintNot2:
+                aProb+= 0.1
+            elif neg in dictRegraCausas[item].sintNot3:
+                aProb+= 0.05
+        if aProb >= 0.7:
+            res.append(item)
+            probs.append(aProb)
+    if res:
+        j = 0
+        t = ''
+        reps = 0
+        for i in range(len(res)):
+            if probs[i] > j:
+                j = probs[i]
+                t = res[i]
+            elif probs[i] == j:
+                reps+=1
+        if reps == len(res):
+            rand = random.randint(0, len(res)-1)
+            return res[rand]
+        else:
+            return t
+    else:
+        return 0
+
 
 def retornaListaFilhos(branch=Node):
     children = []
     if branch.is_leaf == False:
         for child in branch.children:
             if child.is_leaf == False:
-                children.append([child.name, [retornaListaFilhos(child)]])
+                children.append(child.name)
+                children.append(retornaListaFilhos(child))
             else:
                 children.append(child.name)
     else:
@@ -59,49 +149,123 @@ def retornaListaFilhos(branch=Node):
     return children
 
 
+def refazArvore(lista, node):
+    if type(lista) == list:
+        if node != '':
+            if lista:
+                if len(lista[0]) > 2:
+                    for item in lista:
+                        branch = Node(item, parent=node)
+                elif len(lista[0]) == 1:
+                    branch = Node(lista[0], parent=node)
+                else:
+                    branch = Node(lista[0], parent=node)
+                    return refazArvore(lista[1],branch)
+        else:
+            if lista:
+                root = Node(lista[0][0])
+                return refazArvore(lista[1],root)
+
+
+def getRota(node):
+    if node.name != 'Origem':
+        respostas = ' '+node.name
+        return getRota(node.parent) + respostas
+    else:
+        return node.name
+
+
 class RegraCausa:
-        causa: str  # Nome da causa
-        YY: list  # Lista de tuplas
-        probYY: list  # Cada item representa a probabilidade da tupla YY de mesmo indice
-        YN: list  # Lista de tuplas
-        probYN: list  # Cada item representa a probabilidade da tupla YN de mesmo indice
-        NN: list  # Lista de tuplas
-        probNN: list  # Cada item representa a probabilidade da tupla NN de mesmo indice
-        sintYes: list  # Lista de sintomas que ao serem verdadeiros aumentam chance da causa
-        sintNot: list  # Lista de sintomas que ao serem falsos aumentam chance da causa
+    causa: str  # Nome da causa
+    YY: list  # Lista de tuplas
+    YN: list  # Lista de tuplas
+    NN: list  # Lista de tuplas
+    sintYes1: list  # Lista de sintomas que ao serem verdadeiros aumentam chance da causa
+    sintYes2: list
+    sintYes3: list
+    sintNot1: list  # Lista de sintomas que ao serem falsos aumentam chance da causa
+    sintNot2: list
+    sintNot3: list
+    prob = 0
 
 
 class RegraSintoma:
         sintoma: str  # Nome do sintoma
-        YY: list  # Lista de tuplas
-        probYY: list  # Cada item representa a probabilidade da tupla YY de mesmo indice
-        YN: list  # Lista de tuplas
-        probYN: list  # Cada item representa a probabilidade da tupla YN de mesmo indice
-        NN: list  # Lista de tuplas
-        probNN: list  # Cada item representa a probabilidade da tupla NN de mesmo indice
         sintYes: list  # Lista de sintomas que ao serem verdadeiros aumentam chance da causa
         sintNot: list  # Lista de sintomas que ao serem falsos aumentam chance da causa
         ocorrencias: int
 
+class texto(BaseModel):
+    txt: str
 
 
 @app.get("/Regras")
-async def getRegras():
+async def get_Regras():
+    """
+    Retorna todas a base de dados como um dicionario.
+    """
     regras = projetoPAA.reference("/Regras").get()
-    body = json.dumps(regras)
-    projetoPAA.reference("/Regras").push(body)
+    for item in regras:
+        regras = regras[item]
+        break
     return regras
 
 @app.get("/Regras/Arvore/display")
-async def getArvore():
+async def get_Arvore():
+    """
+    Retorna a Arvore como uma lista.
+    """
     arvore = projetoPAA.reference("/Regras/Arvore").get()
-    body = json.dumps(arvore)
-    return json.loads(body)
+    for item in arvore:
+        arvore = arvore[item]
+        break
+    return arvore
+
+@app.get("/Regras/Questionario/get-pergunta")
+async def get_Pergunta():
+    """
+    Retorna uma pergunta sobre um sintoma.
+    Utilize post-resposta para responder a pergunta.
+    """
+    sints = projetoPAA.reference("/Regras/Sintomas").get()
+    rota = projetoPAA.reference("/Regras/Rota").get()
+    if not rota:
+        listSint = []
+        for item in sints:
+            listSint.append(sints[item]["sintoma"])
+        rand = random.randint(0,len(listSint)-1)
+        res = listSint[rand]
+        r = geraPerg(res)
+        rota = []
+        rota.append(res)
+        projetoPAA.reference("/Regras/Rota").delete()
+        projetoPAA.reference("/Regras/Rota").push(rota)
+        return r
+    else:
+        for it in rota:
+            rota = rota[it]
+            break
+        listSint = []
+        for item in sints:
+            if item not in rota:
+                listSint.append(sints[item]["sintoma"])
+        rand = random.randint(0,len(listSint)-1)
+        res = listSint[rand]
+        r = geraPerg(res)
+        rota.append(res)
+        projetoPAA.reference("/Regras/Rota").delete()
+        projetoPAA.reference("/Regras/Rota").push(rota)
+        return r
 
 
 #           CREATE
-@app.post("/primeiraRS")
-async def primeiraRS():
+@app.post("/inserirBaseDeDados")
+async def inserir_base_de_dados():
+    """
+    Formata e insere o arquivo de regras no FireBase.
+    NAO EXECUTAR CASO JA EXISTAM AS REGRAS NA BASE DE DADOS.
+
+    """
     f = open("regras.txt", "r")
     # Declara dicts
     dictRegraCausas = {}
@@ -123,11 +287,13 @@ async def primeiraRS():
                         dictRegraCausas[nomeCausa].YY = []
                         dictRegraCausas[nomeCausa].YN = []
                         dictRegraCausas[nomeCausa].NN = []
-                        dictRegraCausas[nomeCausa].probYY = []
-                        dictRegraCausas[nomeCausa].probYN = []
-                        dictRegraCausas[nomeCausa].probNN = []
-                        dictRegraCausas[nomeCausa].sintYes = []
-                        dictRegraCausas[nomeCausa].sintNot = []
+                        dictRegraCausas[nomeCausa].sintYes1 = []
+                        dictRegraCausas[nomeCausa].sintYes2 = []
+                        dictRegraCausas[nomeCausa].sintYes3 = []
+                        dictRegraCausas[nomeCausa].sintNot1 = []
+                        dictRegraCausas[nomeCausa].sintNot2 = []
+                        dictRegraCausas[nomeCausa].sintNot3 = []
+                        dictRegraCausas[nomeCausa].prob = 0
 
                     if nomeCausa not in listCausas:
                         listCausas.append(nomeCausa)
@@ -164,6 +330,28 @@ async def primeiraRS():
                     else:
                         sint2 = sintomas[1][3:-2]
 
+                    if sint1 not in dictRegraSintomas:
+                        dictRegraSintomas[sint1] = RegraSintoma()
+                        dictRegraSintomas[sint1].sintoma = sint1
+                        dictRegraSintomas[sint1].sintYes = []
+                        dictRegraSintomas[sint1].sintNot = []
+                        dictRegraSintomas[sint1].ocorrencias = 1
+                    else:
+                        if sint1 not in dictRegraCausas[nomeCausa].sintNot1 and sint1 not in dictRegraCausas[
+                            nomeCausa].sintYes1:
+                            dictRegraSintomas[sint1].ocorrencias += 1
+
+                    if sint2 not in dictRegraSintomas:
+                        dictRegraSintomas[sint2] = RegraSintoma()
+                        dictRegraSintomas[sint2].sintoma = sint2
+                        dictRegraSintomas[sint2].sintYes = []
+                        dictRegraSintomas[sint2].sintNot = []
+                        dictRegraSintomas[sint2].ocorrencias = 1
+                    else:
+                        if sint2 not in dictRegraCausas[nomeCausa].sintNot1 and sint2 not in dictRegraCausas[
+                            nomeCausa].sintYes1:
+                            dictRegraSintomas[sint2].ocorrencias += 1
+
                     # Analisa os dois sintomas e guarda no dict
                     # formato ?(?;?) cada interrogacao lida com um possivel NOT
                     # Y(?;?)
@@ -172,90 +360,157 @@ async def primeiraRS():
                         if isNOTsint1 == False:
                             # Y(Y;Y)
                             if isNOTsint2 == False:
-                                dictRegraCausas[nomeCausa].YY.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probYY.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint1)
-                                dictRegraCausas[nomeCausa].sintYes.append(sint2)
+                                dictRegraCausas[nomeCausa].YY.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint2)
                             # Y(Y;N)
                             else:
-                                dictRegraCausas[nomeCausa].YN.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probYN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint1)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint2)
+                                dictRegraCausas[nomeCausa].YN.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint2)
                         # Y(N;?)
                         else:
                             # Y(N;Y)
                             if isNOTsint2 == False:
-                                dictRegraCausas[nomeCausa].YN.append([sint2,sint1])
-                                dictRegraCausas[nomeCausa].probYN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint2)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint1)
+                                dictRegraCausas[nomeCausa].YN.append([sint2, sint1])
+                                if float(linha[2]) == 0.5:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint1)
+                                elif float(linha[2]) == 0.3:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint1)
+                                elif float(linha[2]) == 0.5:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint1)
                             # Y(N;N)
                             else:
-                                dictRegraCausas[nomeCausa].NN.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probNN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintNot.append(sint1)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint2)
+                                dictRegraCausas[nomeCausa].NN.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint2)
                     # N(?;?)
                     else:
                         # N(Y;?)
                         if isNOTsint1 == False:
                             # N(Y;Y)
                             if isNOTsint2 == False:
-                                dictRegraCausas[nomeCausa].NN.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probNN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintNot.append(sint1)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint2)
+                                dictRegraCausas[nomeCausa].NN.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint2)
                             # N(Y;N)
                             else:
-                                dictRegraCausas[nomeCausa].YN.append([sint2,sint1])
-                                dictRegraCausas[nomeCausa].probYN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint2)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint1)
+                                dictRegraCausas[nomeCausa].YN.append([sint2, sint1])
+                                if float(linha[2]) == 0.5:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint1)
+                                elif float(linha[2]) == 0.3:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint1)
+                                elif float(linha[2]) == 0.15:
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint2)
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint1)
                         # N(N;?)
                         else:
                             # N(N;Y)
                             if isNOTsint2 == False:
-                                dictRegraCausas[nomeCausa].YN.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probYN.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint1)
-                                dictRegraCausas[nomeCausa].sintNot.append(sint2)
+                                dictRegraCausas[nomeCausa].YN.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot1:
+                                        dictRegraCausas[nomeCausa].sintNot1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot2:
+                                        dictRegraCausas[nomeCausa].sintNot2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintNot3:
+                                        dictRegraCausas[nomeCausa].sintNot3.append(sint2)
                             # N(N;N)
                             else:
-                                dictRegraCausas[nomeCausa].YY.append([sint1,sint2])
-                                dictRegraCausas[nomeCausa].probYY.append(float(linha[2]))
-                                dictRegraCausas[nomeCausa].sintYes.append(sint1)
-                                dictRegraCausas[nomeCausa].sintYes.append(sint2)
-
-                    if sint1 not in dictRegraSintomas:
-                        dictRegraSintomas[sint1] = RegraSintoma()
-                        dictRegraSintomas[sint1].sintoma = sint1
-                        dictRegraSintomas[sint1].YY = []
-                        dictRegraSintomas[sint1].YN = []
-                        dictRegraSintomas[sint1].NN = []
-                        dictRegraSintomas[sint1].probYY = []
-                        dictRegraSintomas[sint1].probYN = []
-                        dictRegraSintomas[sint1].probNN = []
-                        dictRegraSintomas[sint1].sintYes = []
-                        dictRegraSintomas[sint1].sintNot = []
-                        dictRegraSintomas[sint1].ocorrencias = 1
-                    else:
-                        dictRegraSintomas[sint1].ocorrencias +=1
-
-                    if sint2 not in dictRegraSintomas:
-                        dictRegraSintomas[sint2] = RegraSintoma()
-                        dictRegraSintomas[sint2].sintoma = sint2
-                        dictRegraSintomas[sint2].YY = []
-                        dictRegraSintomas[sint2].YN = []
-                        dictRegraSintomas[sint2].NN = []
-                        dictRegraSintomas[sint2].probYY = []
-                        dictRegraSintomas[sint2].probYN = []
-                        dictRegraSintomas[sint2].probNN = []
-                        dictRegraSintomas[sint2].sintYes = []
-                        dictRegraSintomas[sint2].sintNot = []
-                        dictRegraSintomas[sint2].ocorrencias = 1
-                    else:
-                        dictRegraSintomas[sint2].ocorrencias +=1
+                                dictRegraCausas[nomeCausa].YY.append([sint1, sint2])
+                                if float(linha[2]) == 0.5:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes1:
+                                        dictRegraCausas[nomeCausa].sintYes1.append(sint2)
+                                elif float(linha[2]) == 0.3:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes2:
+                                        dictRegraCausas[nomeCausa].sintYes2.append(sint2)
+                                elif float(linha[2]) == 0.15:
+                                    if sint1 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint1)
+                                    if sint2 not in dictRegraCausas[nomeCausa].sintYes3:
+                                        dictRegraCausas[nomeCausa].sintYes3.append(sint2)
+                    # SINTOMAS
                     # Y(?;?)
                     if isNOT == False:
                         # Y(Y;?)
@@ -323,11 +578,13 @@ async def primeiraRS():
                 "YY": dictRegraCausas[item].YY,
                 "YN": dictRegraCausas[item].YN,
                 "NN": dictRegraCausas[item].NN,
-                "probYY": dictRegraCausas[item].probYY,
-                "probYN": dictRegraCausas[item].probYN,
-                "probNN": dictRegraCausas[item].probNN,
-                "sintYes": dictRegraCausas[item].sintYes,
-                "sintNot": dictRegraCausas[item].sintNot
+                "sintYes1": dictRegraCausas[item].sintYes1,
+                "sintYes2": dictRegraCausas[item].sintYes2,
+                "sintYes3": dictRegraCausas[item].sintYes3,
+                "sintNot1": dictRegraCausas[item].sintNot1,
+                "sintNot2": dictRegraCausas[item].sintNot2,
+                "sintNot3": dictRegraCausas[item].sintNot3,
+                "prob": dictRegraCausas[item].prob
             }
             body = json.dumps(newCausa)
             body1 = json.loads(body)
@@ -335,12 +592,6 @@ async def primeiraRS():
     for item in dictRegraSintomas:
             newSint = {
                 "sintoma": dictRegraSintomas[item].sintoma,
-                "YY": dictRegraSintomas[item].YY,
-                "YN": dictRegraSintomas[item].YN,
-                "NN": dictRegraSintomas[item].NN,
-                "probYY": dictRegraSintomas[item].probYY,
-                "probYN": dictRegraSintomas[item].probYN,
-                "probNN": dictRegraSintomas[item].probNN,
                 "sintYes": dictRegraSintomas[item].sintYes,
                 "sintNot": dictRegraSintomas[item].sintNot,
                 "ocorrencias": dictRegraSintomas[item].ocorrencias
@@ -348,13 +599,47 @@ async def primeiraRS():
             body = json.dumps(newSint)
             body1 = json.loads(body)
             projetoPAA.reference("/Regras/Sintomas").push(body1)
+    return "Sucesso"
 
 
-@app.get("/Regras/Arvore")
-async def makeTree():
+@app.post("/Regras/Arvore/CriarArvore")
+async def cria_Arvore():
+    """
+    Cria a Arvore
+    :return:
+    """
+    sints = projetoPAA.reference("/Regras/Sintomas").get()
+    listSint = []
+
+    for item in sints:
+        listSint.append(sints[item]["sintoma"])
+
+    root = Node('Origem')
+    for i in listSint:
+        branch = Node(i, parent=root)
+
+
+    body = ['Origem',retornaListaFilhos(root)]
+    projetoPAA.reference("/Regras/Arvore").push(body)
+    return body
+
+
+@app.post("/Regras/Questionario/post-resposta")
+async def post_Resposta(resposta: texto):
+    """
+    Retorna um resultado ou 'Continua'.
+    Se retornar 'Continua', faca outro get pergunta.
+    :param resposta:
+    :return:
+    """
+    rota = projetoPAA.reference("/Regras/Rota").get()
+    for it in rota:
+        rota = rota[it]
+        break
+    res = resposta.txt
+    rota.append(res)
     sints = projetoPAA.reference("/Regras/Sintomas").get()
     caus = projetoPAA.reference("/Regras/Causas").get()
-    root = Node("Origem")
     listSintWithCausas = []
     listSint = []
     listCausas = []
@@ -364,30 +649,6 @@ async def makeTree():
         listSint.append(sints[item]["sintoma"])
         dictRegraSintomas[sints[item]["sintoma"]] = RegraSintoma()
         dictRegraSintomas[sints[item]["sintoma"]].sintoma = sints[item]["sintoma"]
-        if "YY" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].YY = sints[item]["YY"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].YY = []
-        if "YN" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].YN = sints[item]["YN"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].YN = []
-        if "NN" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].NN = sints[item]["NN"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].NN = []
-        if "probYY" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].probYY = sints[item]["probYY"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].probYY = []
-        if "probYN" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].probYN = sints[item]["probYN"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].probYN = []
-        if "probNN" in sints[item]:
-            dictRegraSintomas[sints[item]["sintoma"]].probNN = sints[item]["probNN"]
-        else:
-            dictRegraSintomas[sints[item]["sintoma"]].probNN = []
         if "sintYes" in sints[item]:
             dictRegraSintomas[sints[item]["sintoma"]].sintYes = sints[item]["sintYes"]
         else:
@@ -417,48 +678,67 @@ async def makeTree():
             dictRegraCausas[caus[item]["causa"]].NN = caus[item]["NN"]
         else:
             dictRegraCausas[caus[item]["causa"]].NN = []
-        if "probYY" in caus[item]:
-            dictRegraCausas[caus[item]["causa"]].probYY = caus[item]["probYY"]
+        if "sintYes1" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintYes1 = caus[item]["sintYes1"]
         else:
-            dictRegraCausas[caus[item]["causa"]].probYY = []
-        if "probYN" in caus[item]:
-            dictRegraCausas[caus[item]["causa"]].probYN = caus[item]["probYN"]
+            dictRegraCausas[caus[item]["causa"]].sintYes1 = []
+        if "sintYes2" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintYes2 = caus[item]["sintYes2"]
         else:
-            dictRegraCausas[caus[item]["causa"]].probYN = []
-        if "probNN" in caus[item]:
-            dictRegraCausas[caus[item]["causa"]].probNN = caus[item]["probNN"]
+            dictRegraCausas[caus[item]["causa"]].sintYes2 = []
+        if "sintYes3" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintYes3 = caus[item]["sintYes3"]
         else:
-            dictRegraCausas[caus[item]["causa"]].probNN = []
-        if "sintYes" in caus[item]:
-            dictRegraCausas[caus[item]["causa"]].sintYes = caus[item]["sintYes"]
+            dictRegraCausas[caus[item]["causa"]].sintYes3 = []
+        if "sintNot1" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintNot1 = caus[item]["sintNot1"]
         else:
-            dictRegraCausas[caus[item]["causa"]].sintYes = []
-        if "sintNot" in caus[item]:
-            dictRegraCausas[caus[item]["causa"]].sintNot = caus[item]["sintNot"]
+            dictRegraCausas[caus[item]["causa"]].sintNot1 = []
+        if "sintNot2" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintNot2 = caus[item]["sintNot2"]
         else:
-            dictRegraCausas[caus[item]["causa"]].sintNot = []
+            dictRegraCausas[caus[item]["causa"]].sintNot2 = []
+        if "sintNot3" in caus[item]:
+            dictRegraCausas[caus[item]["causa"]].sintNot3 = caus[item]["sintNot3"]
+        else:
+            dictRegraCausas[caus[item]["causa"]].sintNot3 = []
+    negs = []
+    afirms = []
+    z = 0
+    while z < len(rota):
+        if rota[z+1] == 'Sim':
+            afirms.append(rota[z])
+        elif rota[z+1] == 'Nao':
+            negs.append(rota[z])
+        z+=2
+    resultado = probabilidades(afirms,negs,dictRegraCausas)
+    if resultado == 0:
+        if len(listSint) > len(rota)/2:
+            projetoPAA.reference("/Regras/Rota").delete()
+            projetoPAA.reference("/Regras/Rota").push(rota)
+            return "Continua"
+        else:
+            projetoPAA.reference("/Regras/Rota").delete()
+            return "Respostas Inconclusivas."
+    else:
+        projetoPAA.reference("/Regras/Rota").delete()
+        return "Você poderia tentar "+resultado+'.'
 
+@app.delete("/Regras/Questionario")
+async def deleta_Questionario():
+    """
+    Deleta todas as rotas.
+    :return:
+    """
+    projetoPAA.reference("/Regras/Rota").delete()
+    return "Deletado"
 
-    for item in dictRegraCausas:
-        for elem in dictRegraCausas[item].sintYes:
-            if elem not in listSintWithCausas:
-                listSintWithCausas.append(elem)
-        for xis in dictRegraCausas[item].sintNot:
-            if xis not in listSintWithCausas:
-                listSintWithCausas.append(elem)
+@app.delete("/Regras/Arvore")
+async def delete_Arvore():
+    """
+    Deleta a Arvore
+    :return:
+    """
+    projetoPAA.reference("/Regras/Arvore").delete()
+    return "Deletado"
 
-    for sint in listSintWithCausas:
-        branch = Node(sint, parent= root)
-        aux = []
-        for xus in dictRegraSintomas[sint].sintYes:
-            if xus not in aux:
-                aux.append(xus)
-        for it in aux:
-            dictRegras = dictRegraCausas
-            criaFilho1(branch, it, dictRegras)
-
-    # Criar arvore como lista
-    arvore = retornaListaFilhos(root)
-
-    projetoPAA.reference("/Regras/Arvore").push(arvore)
-    return arvore
