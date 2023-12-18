@@ -26,7 +26,7 @@ function TreePage() {
 }
 
 function HomePage() {
-  const [questions, setQuestions] = useState([]);
+  const [question, setQuestion] = useState(null);
 
   // Função para limpar a rota do questionário
   const deleteQuestionario = async () => {
@@ -39,51 +39,48 @@ function HomePage() {
       console.error('Erro ao deletar a rota do questionário:', error);
     }
   };
+  const fetchQuestion = async () => {
+    try {
+      const questionsResponse = await fetch('http://localhost:8000/Regras/Questionario/get-pergunta');
+      const questionsData = await questionsResponse.json();
+
+      console.log('Pergunta obtida:', questionsData);
+      setQuestion(questionsData);
+
+    } catch (error) {
+      console.error('Falha ao buscar as perguntas:', error);
+      setQuestion(null);
+    }
+  };
 
   useEffect(() => {
     // Limpar a rota antes de começar o questionário
-    deleteQuestionario();
-
-    const fetchQuestions = async () => {
-      try {
-        const questionsResponse = await fetch('http://localhost:8000/Regras/Questionario/get-pergunta');
-        const questionsData = await questionsResponse.json();
-
-        console.log(questionsData);
-
-        if (Array.isArray(questionsData)) {
-          setQuestions(questionsData);
-        } else {
-          setQuestions([questionsData]);
-        }
-      } catch (error) {
-        console.error('Falha ao buscar as perguntas:', error);
-        setQuestions([]);
-      }
-    };
-
-    fetchQuestions();
-  }, []); // Adicione um array de dependências vazio para executar apenas uma vez no montar do componente
+    console.log('Limpando a rota do questionário...');
+    if (!question){
+      fetchQuestion();
+    }
+  }, []); // Array de dependências
 
   const handleAnswer = async (answer) => {
     try {
+      console.log('Enviando resposta:', answer);
       const response = await fetch('http://localhost:8000/Regras/Questionario/post-resposta', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(answer)
+        body: JSON.stringify({ txt: answer})
       });
   
       if (response.ok) {
         const responseData = await response.text();
   
         if (responseData === 'Continua') {
-          const questionResponse = await fetch('/Regras/Questionario/get-pergunta');
+          const questionResponse = await fetch('http://localhost:8000/Regras/Questionario/get-pergunta');
   
           if (questionResponse.ok) {
             const questionData = await questionResponse.json();
-            setQuestions([...questions, questionData]);
+            setQuestion(questionData);
           } else {
             console.error('Erro ao obter a próxima pergunta:', questionResponse.status);
           }
@@ -107,10 +104,8 @@ function HomePage() {
           ALUFIT
         </div>
         <div>
-          {questions.length > 0 ? (
-            questions.map((question, index) => (
-              <div key={index}>{question}</div>
-            ))
+          {question ? (
+              <div>{question}</div>
           ) : (
             <p>Nenhuma pergunta encontrada.</p>
           )}
@@ -118,7 +113,7 @@ function HomePage() {
         <div className="mt-4">
           <button onClick={() => handleAnswer('Sim')} className="px-4 py-2 mr-2 bg-green-600 text-white rounded">SIM</button>
           <button onClick={() => handleAnswer('Nao')} className="px-4 py-2 mr-2 bg-red-600 text-white rounded">NÃO</button>
-          <button onClick={() => handleAnswer('Nao_Seis')} className="px-4 py-2 bg-yellow-600 text-white rounded">NÃO SEI</button>
+          <button onClick={() => handleAnswer('Nao_Sei')} className="px-4 py-2 bg-yellow-600 text-white rounded">NÃO SEI</button>
 
         </div>
       </div>

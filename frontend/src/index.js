@@ -1,14 +1,12 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
+import { createRoot } from 'react-dom/client';
 import reportWebVitals from './reportWebVitals';
 
-ReactDOM.render(
-  <React.StrictMode>
+const root = document.getElementById('root');
+createRoot(root).render(
     <App />
-  </React.StrictMode>,
-  document.getElementById('root')
 );
 
 // Se você quiser começar a medir o desempenho no modo de produção com o Google Analytics, remova o comentário da linha abaixo
