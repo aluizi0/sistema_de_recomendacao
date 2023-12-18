@@ -247,15 +247,18 @@ async def get_Pergunta():
             break
         listSint = []
         for item in sints:
-            if item not in rota:
+            if sints[item]["sintoma"] not in rota:
                 listSint.append(sints[item]["sintoma"])
-        rand = random.randint(0,len(listSint)-1)
-        res = listSint[rand]
-        r = geraPerg(res)
-        rota.append(res)
-        projetoPAA.reference("/Regras/Rota").delete()
-        projetoPAA.reference("/Regras/Rota").push(rota)
-        return r
+        if len(rota)/2 < len(listSint):
+            rand = random.randint(0,len(listSint)-1)
+            res = listSint[rand]
+            r = geraPerg(res)
+            rota.append(res)
+            projetoPAA.reference("/Regras/Rota").delete()
+            projetoPAA.reference("/Regras/Rota").push(rota)
+            return r
+        else:
+            return "RESPOSTA INCONCLUSIVA."
 
 
 #           CREATE
@@ -719,7 +722,6 @@ async def post_Resposta(resposta: texto):
             return "Continua"
         else:
             projetoPAA.reference("/Regras/Rota").delete()
-            projetoPAA.reference("/Regras/Rota").push(rota)
             return "Respostas Inconclusivas."
     else:
         projetoPAA.reference("/Regras/Rota").delete()
