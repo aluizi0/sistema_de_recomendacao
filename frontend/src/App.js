@@ -31,9 +31,10 @@ function HomePage() {
   // Função para limpar a rota do questionário
   const deleteQuestionario = async () => {
     try {
-      await fetch('http://localhost:8000/Regras/Questionario', {
+      const response = await fetch('http://localhost:8000/Regras/Questionario', {
         method: 'DELETE',
       });
+      console.log(response);
       console.log('Rota do questionário deletada com sucesso.');
     } catch (error) {
       console.error('Erro ao deletar a rota do questionário:', error);
@@ -55,6 +56,7 @@ function HomePage() {
 
   useEffect(() => {
     // Limpar a rota antes de começar o questionário
+    deleteQuestionario();
     console.log('Limpando a rota do questionário...');
     if (!question){
       fetchQuestion();
@@ -70,14 +72,27 @@ function HomePage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ txt: answer})
-      });
-  
-      if (response.ok) {
+      }).then(response => response.json())
+      console.log(response)
+      if (response === 'Continua') {
+        fetchQuestion();
+      }
+      else if (response === 'Respostas Inconclusivas'){
+        console.log('Resultado Final:', response);
+        deleteQuestionario();
+      }
+      else {
+        alert('Resultado Final: ' + response);
+        console.log('Resultado Final:', response);
+        deleteQuestionario();
+      }
+
+      /*if (response.ok) {
         const responseData = await response.text();
   
         if (responseData === 'Continua') {
-          const questionResponse = await fetch('http://localhost:8000/Regras/Questionario/get-pergunta');
-  
+          console.log('Resposta enviada com sucesso. Obtendo a próxima pergunta...');
+          fetchQuestion();
           if (questionResponse.ok) {
             const questionData = await questionResponse.json();
             setQuestion(questionData);
@@ -89,7 +104,7 @@ function HomePage() {
         }
       } else {
         console.error('Erro ao enviar a resposta:', response.status);
-      }
+      }*/
     } catch (error) {
       console.error('Erro ao enviar a resposta:', error);
     }
