@@ -719,6 +719,7 @@ async def post_Resposta(resposta: texto):
             return "Continua"
         else:
             projetoPAA.reference("/Regras/Rota").delete()
+            projetoPAA.reference("/Regras/Rota").push(rota)
             return "Respostas Inconclusivas."
     else:
         projetoPAA.reference("/Regras/Rota").delete()
